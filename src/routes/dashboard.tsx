@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button";
 import { HubTabBar } from "@/components/hub/hub-shell";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import logo from "@/assets/cupai-logo.png.asset.json";
-import { SiteLinkBar } from "@/components/website/site-link-bar";
+import { SiteIdentity, SiteSettingsButton } from "@/components/website/site-link-bar";
 import {
   listNotifications, markNotificationRead, type NotificationRow, type NotificationType,
 } from "@/lib/notifications.functions";
