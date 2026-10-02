@@ -131,7 +131,6 @@ function DashboardPage() {
         </header>
 
         <main className="mx-auto max-w-6xl space-y-7 px-4 py-6 sm:px-6 lg:py-8">
-          {can("brand_data") && <SiteLinkBar />}
           <section>
             <div className="mb-4">
               <p className="text-xs font-semibold text-primary">اليوم في متجرك</p>
