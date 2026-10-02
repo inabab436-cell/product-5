@@ -181,6 +181,15 @@ function ManagementBoard({ state }: { state: SiteState }) {
         </div>
       </SurfaceCard>
 
+      {/* Products are managed from the Inventory page (/products), not here. */}
+      <PoliciesSection />
+      <ShippingSection />
+      <ContactsSection />
+    </div>
+  );
+}
+
+
 
 // ---------------------------------------------------------------------------
 // PRODUCTS section (table, per-row edit, image upload, sizes/colors)
