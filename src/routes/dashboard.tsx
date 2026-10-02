@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button";
 import { HubTabBar } from "@/components/hub/hub-shell";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import logo from "@/assets/cupai-logo.png.asset.json";
-import { SiteLinkBar } from "@/components/website/site-link-bar";
+import { SiteIdentity, SiteSettingsButton } from "@/components/website/site-link-bar";
 import {
   listNotifications, markNotificationRead, type NotificationRow, type NotificationType,
 } from "@/lib/notifications.functions";
@@ -119,28 +119,18 @@ function DashboardPage() {
       <div className="lg:mr-64">
         <header className="sticky top-0 z-20 border-b border-border bg-card/90 backdrop-blur-xl">
           <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-3 px-4 sm:px-6">
-            <Link to="/" className="flex min-w-0 items-center gap-3 lg:hidden">
-              <img src={logo.url} alt="cupai" className="h-9 w-9 shrink-0 rounded-lg" />
-              <span className="min-w-0">
-                <span className="block truncate text-sm font-bold">متجرك</span>
-                <span className="flex items-center gap-1 text-[10px] text-dashboard-green">
-                  <span className="h-1.5 w-1.5 rounded-full bg-dashboard-green" /> جاهز للعمل
-                </span>
-              </span>
-            </Link>
-            <div className="hidden lg:block">
-              <p className="text-xs text-muted-foreground">لوحة التحكم</p>
-              <h1 className="text-lg font-bold">نظرة عامة</h1>
+            <SiteIdentity fallbackLogo={logo.url} />
+            <div className="flex shrink-0 items-center gap-2">
+              {can("brand_data") && <SiteSettingsButton />}
+              <a href="#notifications" className="relative grid h-9 w-9 shrink-0 place-items-center rounded-lg border border-border bg-background text-muted-foreground transition-colors hover:text-foreground" aria-label="فتح الإشعارات">
+                <Bell className="h-[18px] w-[18px]" />
+                {unread > 0 && <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-destructive ring-2 ring-card" />}
+              </a>
             </div>
-            <a href="#notifications" className="relative grid h-9 w-9 shrink-0 place-items-center rounded-lg border border-border bg-background text-muted-foreground transition-colors hover:text-foreground" aria-label="فتح الإشعارات">
-              <Bell className="h-[18px] w-[18px]" />
-              {unread > 0 && <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-destructive ring-2 ring-card" />}
-            </a>
           </div>
         </header>
 
         <main className="mx-auto max-w-6xl space-y-7 px-4 py-6 sm:px-6 lg:py-8">
-          {can("brand_data") && <SiteLinkBar />}
           <section>
             <div className="mb-4">
               <p className="text-xs font-semibold text-primary">اليوم في متجرك</p>
