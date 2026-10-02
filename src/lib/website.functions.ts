@@ -140,6 +140,22 @@ export const unpublishSite = createServerFn({ method: "POST" }).handler(
     return loadState(userId);
   },
 );
+
+/** Removes the storefront: hides it publicly and returns to the "no website" state. */
+export const deleteSite = createServerFn({ method: "POST" }).handler(
+  async (): Promise<SiteState> => {
+    const { requirePermission } = await import("@/lib/session-guard.server");
+    const { getSupabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { userId } = await requirePermission("brand_data");
+    const admin = getSupabaseAdmin();
+    const { error } = await admin
+      .from("merchants")
+      .update({ site_created: false, site_status: "unpublished", updated_at: new Date().toISOString() })
+      .eq("user_id", userId);
+    if (error) throw new Error(error.message);
+    return loadState(userId);
+  },
+);
 // ---------------------------------------------------------------------------
 // Website Identity (name / description / logo / theme) — auto-saved from UI
 // with no explicit publish button.
