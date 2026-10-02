@@ -1,13 +1,14 @@
 import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Copy, ExternalLink, Globe, ImageIcon, Lock, Settings, Trash2, Unlock, Upload } from "lucide-react";
+import { Camera, Copy, ImageIcon, Settings, Trash2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Switch } from "@/components/ui/switch";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
@@ -30,13 +31,48 @@ function fileToBase64(file: File): Promise<string> {
   });
 }
 
-/** Store link shown at the top of the control page, with a gear opening site settings. */
-export function SiteLinkBar() {
-  const qc = useQueryClient();
-  const site = useQuery({ queryKey: ["site-state"], queryFn: () => getSiteState() });
-  const [open, setOpen] = useState(false);
-  const state = site.data;
+function useSite() {
+  return useQuery({ queryKey: ["site-state"], queryFn: () => getSiteState() });
+}
 
+/** Header identity: store logo, name and its public link (replaces the generic label). */
+export function SiteIdentity({ fallbackLogo }: { fallbackLogo: string }) {
+  const { data: s } = useSite();
+  const live = s?.site_created && s.brand_slug;
+  const path = live ? `/c/${s!.brand_slug}` : null;
+  const host = typeof window !== "undefined" ? window.location.host : "";
+  const published = s?.site_status === "published";
+
+  return (
+    <div className="flex min-w-0 items-center gap-3">
+      <img src={s?.logo_url || fallbackLogo} alt="" className="h-10 w-10 shrink-0 rounded-full border border-border object-cover" />
+      <div className="min-w-0">
+        <div className="truncate text-sm font-bold leading-tight">{s?.brand_name || "متجرك"}</div>
+        {path ? (
+          <div className="mt-0.5 flex min-w-0 items-center gap-1.5">
+            <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${published ? "bg-dashboard-green" : "bg-destructive"}`} />
+            <a href={path} target="_blank" rel="noopener noreferrer" dir="ltr"
+              className="truncate text-xs text-muted-foreground underline-offset-2 hover:text-foreground hover:underline">
+              {host}{path}
+            </a>
+            <button type="button" aria-label="نسخ الرابط" className="shrink-0 text-muted-foreground hover:text-foreground"
+              onClick={() => { navigator.clipboard?.writeText(`${window.location.origin}${path}`); toast.success("تم نسخ الرابط"); }}>
+              <Copy className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        ) : (
+          <div className="text-xs text-muted-foreground">لوحة التحكم</div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/** Gear button in the header that opens the site settings panel. */
+export function SiteSettingsButton() {
+  const qc = useQueryClient();
+  const { data: state } = useSite();
+  const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [logoUrl, setLogoUrl] = useState("");
@@ -46,7 +82,7 @@ export function SiteLinkBar() {
     setName(state?.brand_name ?? "");
     setDescription(state?.description ?? "");
     setLogoUrl(state?.logo_url ?? "");
-  }, [state?.brand_name, state?.description, state?.logo_url]);
+  }, [state?.brand_name, state?.description, state?.logo_url, open]);
 
   const refresh = () => qc.invalidateQueries({ queryKey: ["site-state"] });
   const onErr = (e: unknown) => toast.error(e instanceof Error ? e.message : "حدث خطأ");
@@ -66,8 +102,8 @@ export function SiteLinkBar() {
     onError: onErr,
   });
   const toggleMut = useMutation({
-    mutationFn: () => (state?.site_status === "published" ? unpublishSite({}) : publishSite({})),
-    onSuccess: () => { refresh(); toast.success(state?.site_status === "published" ? "تم تقييد الموقع" : "تم تفعيل الموقع"); },
+    mutationFn: (on: boolean) => (on ? publishSite({}) : unpublishSite({})),
+    onSuccess: (_d, on) => { refresh(); toast.success(on ? "الموقع ظاهر للعملاء" : "تم تقييد الموقع"); },
     onError: onErr,
   });
   const deleteMut = useMutation({
@@ -76,97 +112,92 @@ export function SiteLinkBar() {
     onError: onErr,
   });
 
-  if (!state?.site_created || !state.brand_slug) return null;
-
-  const path = `/c/${state.brand_slug}`;
-  const url = `${typeof window !== "undefined" ? window.location.origin : ""}${path}`;
+  if (!state?.site_created) return null;
   const published = state.site_status === "published";
+  const dirty = name.trim() !== (state.brand_name ?? "") || description !== (state.description ?? "");
 
   return (
     <>
-      <div className="flex items-center gap-2 rounded-xl border border-border bg-card p-2.5">
-        <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-dashboard-blue-soft text-dashboard-blue">
-          <Globe className="h-4 w-4" />
-        </span>
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
-            رابط موقعك
-            <span className={`h-1.5 w-1.5 rounded-full ${published ? "bg-dashboard-green" : "bg-destructive"}`} />
-            {published ? "منشور" : "مقيد"}
+      <button type="button" onClick={() => setOpen(true)} aria-label="إعدادات الموقع"
+        className="grid h-9 w-9 shrink-0 place-items-center rounded-lg border border-border bg-background text-muted-foreground transition-colors hover:text-foreground">
+        <Settings className="h-[18px] w-[18px]" />
+      </button>
+
+      <Sheet open={open} onOpenChange={setOpen}>
+        <SheetContent side="bottom" dir="rtl"
+          className="mx-auto max-h-[92vh] w-full max-w-lg overflow-y-auto rounded-t-3xl px-5 pb-8 pt-3">
+          <div className="mx-auto mb-4 h-1.5 w-10 rounded-full bg-muted" />
+          <SheetHeader className="mb-6 text-center sm:text-center">
+            <SheetTitle>إعدادات الموقع</SheetTitle>
+          </SheetHeader>
+
+          {/* Logo */}
+          <div className="mb-6 flex flex-col items-center gap-2">
+            <button type="button" onClick={() => logoRef.current?.click()} disabled={uploadMut.isPending}
+              className="relative h-24 w-24 rounded-full border-2 border-dashed border-border bg-muted/40">
+              <span className="grid h-full w-full place-items-center overflow-hidden rounded-full">
+                {logoUrl ? <img src={logoUrl} alt="اللوجو" className="h-full w-full object-cover" />
+                  : <ImageIcon className="h-8 w-8 text-muted-foreground" />}
+              </span>
+              <span className="absolute -bottom-1 -left-1 grid h-8 w-8 place-items-center rounded-full bg-primary text-primary-foreground ring-4 ring-background">
+                <Camera className="h-4 w-4" />
+              </span>
+            </button>
+            <span className="text-xs text-muted-foreground">
+              {uploadMut.isPending ? "جارٍ رفع اللوجو…" : "اضغط لتغيير اللوجو"}
+            </span>
+            <input ref={logoRef} type="file" accept="image/*" className="hidden"
+              onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadMut.mutate(f); e.target.value = ""; }} />
           </div>
-          <a href={path} target="_blank" rel="noopener noreferrer" dir="ltr" className="block truncate text-left text-sm font-semibold hover:underline">
-            {url.replace(/^https?:\/\//, "")}
-          </a>
-        </div>
-        <Button size="icon" variant="ghost" className="h-8 w-8" aria-label="نسخ الرابط"
-          onClick={() => { navigator.clipboard?.writeText(url); toast.success("تم نسخ الرابط"); }}>
-          <Copy className="h-4 w-4" />
-        </Button>
-        <Button size="icon" variant="ghost" className="h-8 w-8" asChild aria-label="فتح الموقع">
-          <a href={path} target="_blank" rel="noopener noreferrer"><ExternalLink className="h-4 w-4" /></a>
-        </Button>
-        <Button size="icon" variant="outline" className="h-8 w-8" aria-label="إعدادات الموقع" onClick={() => setOpen(true)}>
-          <Settings className="h-4 w-4" />
-        </Button>
-      </div>
 
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent dir="rtl" className="max-h-[90vh] overflow-y-auto sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle className="text-right">إعدادات الموقع</DialogTitle>
-          </DialogHeader>
-
-          <div className="space-y-5">
-            <div className="flex items-center gap-4">
-              <div className="grid h-20 w-20 shrink-0 place-items-center overflow-hidden rounded-full border bg-muted/40">
-                {logoUrl ? <img src={logoUrl} alt="لوجو الموقع" className="h-full w-full object-cover" /> : <ImageIcon className="h-7 w-7 text-muted-foreground" />}
-              </div>
-              <input ref={logoRef} type="file" accept="image/*" className="hidden"
-                onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadMut.mutate(f); e.target.value = ""; }} />
-              <Button variant="outline" size="sm" disabled={uploadMut.isPending} onClick={() => logoRef.current?.click()}>
-                <Upload className="ml-1 h-4 w-4" />
-                {uploadMut.isPending ? "جارٍ الرفع…" : logoUrl ? "تغيير اللوجو" : "إضافة لوجو"}
-              </Button>
+          {/* Name + description */}
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="site-name">اسم الموقع</Label>
+              <Input id="site-name" className="h-12 text-base" value={name} onChange={(e) => setName(e.target.value)} placeholder="مثال: متجر القهوة" />
             </div>
-
-            <div className="space-y-1.5">
-              <Label>اسم الموقع</Label>
-              <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="مثال: متجر القهوة" />
+            <div className="space-y-2">
+              <Label htmlFor="site-desc">الوصف</Label>
+              <Textarea id="site-desc" rows={3} className="text-base" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="جملة قصيرة تعرّف بمتجرك" />
             </div>
-            <div className="space-y-1.5">
-              <Label>الوصف</Label>
-              <Textarea rows={3} value={description} onChange={(e) => setDescription(e.target.value)} placeholder="وصف قصير لمتجرك" />
-            </div>
-            <Button className="w-full" disabled={saveMut.isPending || name.trim().length < 2}
+            <Button size="lg" className="h-12 w-full text-base" disabled={!dirty || saveMut.isPending || name.trim().length < 2}
               onClick={() => saveMut.mutate({ brand_name: name.trim(), description })}>
-              حفظ
+              {saveMut.isPending ? "جارٍ الحفظ…" : "حفظ التغييرات"}
             </Button>
-
-            <div className="grid grid-cols-2 gap-2 border-t border-border pt-4">
-              <Button variant="outline" disabled={toggleMut.isPending} onClick={() => toggleMut.mutate()}>
-                {published ? <><Lock className="ml-1 h-4 w-4" />تقييد الموقع</> : <><Unlock className="ml-1 h-4 w-4" />إلغاء التقييد</>}
-              </Button>
-              <AlertDialog>
-                <AlertDialogTrigger asChild>
-                  <Button variant="destructive" disabled={deleteMut.isPending}>
-                    <Trash2 className="ml-1 h-4 w-4" />حذف الموقع
-                  </Button>
-                </AlertDialogTrigger>
-                <AlertDialogContent dir="rtl">
-                  <AlertDialogHeader>
-                    <AlertDialogTitle className="text-right">حذف الموقع؟</AlertDialogTitle>
-                    <AlertDialogDescription className="text-right">سيتوقف ظهور موقعك للعملاء.</AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter className="gap-2">
-                    <AlertDialogCancel>إلغاء</AlertDialogCancel>
-                    <AlertDialogAction onClick={() => deleteMut.mutate()}>حذف</AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
-            </div>
           </div>
-        </DialogContent>
-      </Dialog>
+
+          {/* Visibility */}
+          <label className="mt-6 flex cursor-pointer items-center justify-between gap-4 rounded-2xl border border-border bg-muted/30 p-4">
+            <span>
+              <span className="block text-sm font-semibold">ظهور الموقع للعملاء</span>
+              <span className="mt-0.5 block text-xs text-muted-foreground">
+                {published ? "موقعك ظاهر الآن" : "موقعك مقيّد ولا يراه أحد"}
+              </span>
+            </span>
+            <Switch checked={published} disabled={toggleMut.isPending} onCheckedChange={(on) => toggleMut.mutate(on)} />
+          </label>
+
+          {/* Delete */}
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <button type="button" disabled={deleteMut.isPending}
+                className="mx-auto mt-6 flex items-center gap-1.5 text-sm font-medium text-destructive hover:underline">
+                <Trash2 className="h-4 w-4" />حذف الموقع
+              </button>
+            </AlertDialogTrigger>
+            <AlertDialogContent dir="rtl">
+              <AlertDialogHeader>
+                <AlertDialogTitle className="text-right">حذف الموقع؟</AlertDialogTitle>
+                <AlertDialogDescription className="text-right">سيتوقف ظهور موقعك للعملاء.</AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter className="gap-2">
+                <AlertDialogCancel>إلغاء</AlertDialogCancel>
+                <AlertDialogAction onClick={() => deleteMut.mutate()}>حذف</AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        </SheetContent>
+      </Sheet>
     </>
   );
 }
